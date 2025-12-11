@@ -1,0 +1,24 @@
+[gd_scene load_steps=3 format=3 uid="uid://dt210qn8gr2t5"]
+
+[ext_resource type="Script" uid="uid://8wh3s583g04p" path="res://letter.gd" id="1_r6swm"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_u08kb"]
+size = Vector2(67, 54.5)
+
+[node name="Letter" type="RigidBody2D"]
+input_pickable = true
+script = ExtResource("1_r6swm")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(33, 32)
+shape = SubResource("RectangleShape2D_u08kb")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Label" type="Label" parent="."]
+offset_right = 40.0
+offset_bottom = 23.0
+text = "A"
+horizontal_alignment = 1

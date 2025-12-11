@@ -1,0 +1,20 @@
+[gd_scene load_steps=3 format=3 uid="uid://cmjwainqkygrg"]
+
+[ext_resource type="Script" uid="uid://dsvk53jckkyaa" path="res://game.gd" id="1_80nbo"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_e2o6t"]
+size = Vector2(1167, 76)
+
+[node name="Game" type="Node2D"]
+script = ExtResource("1_80nbo")
+
+[node name="Ground" type="StaticBody2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
+position = Vector2(579.5, 611)
+shape = SubResource("RectangleShape2D_e2o6t")
+
+[node name="Timer" type="Timer" parent="."]
+autostart = true
+
+[connection signal="timeout" from="Timer" to="." method="_on_timer_timeout"]

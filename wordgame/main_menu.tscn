@@ -1,0 +1,46 @@
+[gd_scene load_steps=3 format=3 uid="uid://dnisf74swvhxg"]
+
+[ext_resource type="Script" uid="uid://47hdm08blvu" path="res://main_menu.gd" id="1_06t4h"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_7vrkn"]
+font_size = 64
+shadow_offset = Vector2(4, 4)
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("1_06t4h")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.84313726, 0.1764706, 0.25882354, 1)
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+offset_right = 546.0
+offset_bottom = 169.0
+theme_override_constants/separation = 50
+
+[node name="Title" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "Brian's Bad Game"
+label_settings = SubResource("LabelSettings_7vrkn")
+
+[node name="PlayButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Play"
+
+[connection signal="pressed" from="VBoxContainer/PlayButton" to="." method="_on_play_button_pressed"]
