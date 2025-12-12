@@ -1,9 +1,15 @@
-[gd_scene load_steps=3 format=3 uid="uid://cmjwainqkygrg"]
+[gd_scene load_steps=5 format=3 uid="uid://cmjwainqkygrg"]
 
 [ext_resource type="Script" uid="uid://dsvk53jckkyaa" path="res://game.gd" id="1_80nbo"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_e2o6t"]
-size = Vector2(1167, 76)
+size = Vector2(1167, 126)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_80nbo"]
+size = Vector2(103, 585.5)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_feb5d"]
+size = Vector2(1349, 52)
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1_80nbo")
@@ -11,10 +17,78 @@ script = ExtResource("1_80nbo")
 [node name="Ground" type="StaticBody2D" parent="."]
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
-position = Vector2(579.5, 611)
+position = Vector2(579.5, 586)
 shape = SubResource("RectangleShape2D_e2o6t")
 
 [node name="Timer" type="Timer" parent="."]
 autostart = true
 
+[node name="GameUI" type="CanvasLayer" parent="."]
+
+[node name="SubmitButton" type="Button" parent="GameUI"]
+custom_minimum_size = Vector2(50, 50)
+offset_left = 857.0
+offset_top = 587.0
+offset_right = 932.0
+offset_bottom = 637.0
+
+[node name="ScoreContainer" type="VBoxContainer" parent="GameUI"]
+offset_left = 760.0
+offset_top = 590.0
+offset_right = 853.0
+offset_bottom = 640.0
+
+[node name="ScoreLabel" type="Label" parent="GameUI/ScoreContainer"]
+layout_mode = 2
+
+[node name="WordLabel" type="Label" parent="GameUI/ScoreContainer"]
+layout_mode = 2
+
+[node name="SubmissionSlots" type="HBoxContainer" parent="GameUI"]
+offset_left = 415.0
+offset_top = 569.0
+offset_right = 831.0
+offset_bottom = 649.0
+
+[node name="Slot1" type="ColorRect" parent="GameUI/SubmissionSlots"]
+custom_minimum_size = Vector2(80, 80)
+layout_mode = 2
+
+[node name="Slot2" type="ColorRect" parent="GameUI/SubmissionSlots"]
+custom_minimum_size = Vector2(80, 80)
+layout_mode = 2
+
+[node name="Slot3" type="ColorRect" parent="GameUI/SubmissionSlots"]
+custom_minimum_size = Vector2(80, 50)
+layout_mode = 2
+
+[node name="Slot4" type="ColorRect" parent="GameUI/SubmissionSlots"]
+custom_minimum_size = Vector2(80, 50)
+layout_mode = 2
+
+[node name="Slot5" type="ColorRect" parent="GameUI/SubmissionSlots"]
+custom_minimum_size = Vector2(80, 50)
+layout_mode = 2
+
+[node name="Boundary" type="StaticBody2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Boundary"]
+position = Vector2(-57, 274)
+shape = SubResource("RectangleShape2D_80nbo")
+
+[node name="CollisionShape2D2" type="CollisionShape2D" parent="Boundary"]
+position = Vector2(1212, 256)
+shape = SubResource("RectangleShape2D_80nbo")
+
+[node name="Ceiling" type="StaticBody2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Ceiling"]
+position = Vector2(572, -41)
+rotation = -3.1415925
+shape = SubResource("RectangleShape2D_feb5d")
+one_way_collision = true
+
+[node name="LetterTimer" type="Timer" parent="."]
+
 [connection signal="timeout" from="Timer" to="." method="_on_timer_timeout"]
+[connection signal="timeout" from="LetterTimer" to="." method="_on_letter_timer_timeout"]

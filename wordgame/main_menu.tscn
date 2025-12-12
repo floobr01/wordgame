@@ -30,13 +30,15 @@ grow_vertical = 2
 
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 layout_mode = 1
-offset_right = 546.0
-offset_bottom = 169.0
+offset_left = 329.0
+offset_top = 198.0
+offset_right = 875.0
+offset_bottom = 367.0
 theme_override_constants/separation = 50
 
 [node name="Title" type="Label" parent="VBoxContainer"]
 layout_mode = 2
-text = "Brian's Bad Game"
+text = "Brian's Badass Game"
 label_settings = SubResource("LabelSettings_7vrkn")
 
 [node name="PlayButton" type="Button" parent="VBoxContainer"]
