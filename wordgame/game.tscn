@@ -1,8 +1,10 @@
-[gd_scene load_steps=10 format=3 uid="uid://cmjwainqkygrg"]
+[gd_scene load_steps=12 format=3 uid="uid://cmjwainqkygrg"]
 
 [ext_resource type="Script" uid="uid://dsvk53jckkyaa" path="res://game.gd" id="1_80nbo"]
+[ext_resource type="Texture2D" uid="uid://byyaqseg310q3" path="res://wall.png" id="2_7jktm"]
 [ext_resource type="Texture2D" uid="uid://bv3soxcafgv3v" path="res://background_im.png" id="2_e2o6t"]
 [ext_resource type="Texture2D" uid="uid://86s1torqh8eu" path="res://demon.png" id="3_feb5d"]
+[ext_resource type="AudioStream" uid="uid://dg1gxrv3lvamc" path="res://piano.mp3" id="4_fc0e3"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_e2o6t"]
 size = Vector2(1167, 126)
@@ -66,10 +68,10 @@ autostart = true
 
 [node name="SubmitButton" type="Button" parent="GameUI"]
 custom_minimum_size = Vector2(50, 50)
-offset_left = 823.0
-offset_top = 900.0
-offset_right = 1001.0
-offset_bottom = 997.0
+offset_left = 614.0
+offset_top = 890.0
+offset_right = 792.0
+offset_bottom = 987.0
 text = "Submit"
 
 [node name="ScoreContainer" type="VBoxContainer" parent="GameUI"]
@@ -115,15 +117,49 @@ custom_minimum_size = Vector2(50, 50)
 layout_mode = 2
 color = Color(1, 1, 1, 0)
 
+[node name="WordListPanel" type="PanelContainer" parent="GameUI"]
+offset_left = 15.0
+offset_top = 97.0
+offset_right = 315.0
+offset_bottom = 897.0
+
+[node name="WordScrollContainer" type="ScrollContainer" parent="GameUI/WordListPanel"]
+layout_mode = 2
+
+[node name="WordDisplayList" type="VBoxContainer" parent="GameUI/WordListPanel/WordScrollContainer"]
+layout_mode = 2
+
 [node name="Boundary" type="StaticBody2D" parent="."]
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Boundary"]
-position = Vector2(-57, 404.8125)
+position = Vector2(295, 428)
 shape = SubResource("RectangleShape2D_80nbo")
+debug_color = Color(0, 0, 0, 1)
 
 [node name="CollisionShape2D2" type="CollisionShape2D" parent="Boundary"]
-position = Vector2(1212, 506.625)
+position = Vector2(859, 461)
 shape = SubResource("RectangleShape2D_80nbo")
+debug_color = Color(0, 0, 0, 0.41960785)
+
+[node name="TextureRect" type="TextureRect" parent="Boundary"]
+modulate = Color(1, 1, 1, 0.29411766)
+z_index = 1
+offset_left = -200.0
+offset_top = -1.0
+offset_right = 824.0
+offset_bottom = 1023.0
+scale = Vector2(0.5653349, 1.0416946)
+texture = ExtResource("2_7jktm")
+
+[node name="TextureRect2" type="TextureRect" parent="Boundary"]
+modulate = Color(1, 1, 1, 0.29411766)
+z_index = 1
+offset_left = 777.99994
+offset_top = -6.0
+offset_right = 1802.0
+offset_bottom = 1018.0
+scale = Vector2(0.5653349, 1.0416946)
+texture = ExtResource("2_7jktm")
 
 [node name="Ceiling" type="StaticBody2D" parent="."]
 
@@ -163,6 +199,12 @@ texture = ExtResource("3_feb5d")
 libraries = {
 &"": SubResource("AnimationLibrary_ryrav")
 }
+
+[node name="GameOverLine" type="Line2D" parent="."]
+
+[node name="BackgroundMusicPlayer" type="AudioStreamPlayer2D" parent="."]
+stream = ExtResource("4_fc0e3")
+autoplay = true
 
 [connection signal="timeout" from="Timer" to="." method="_on_timer_timeout"]
 [connection signal="timeout" from="LetterTimer" to="." method="_on_letter_timer_timeout"]

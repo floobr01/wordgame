@@ -19,20 +19,22 @@ gravity_scale = 0.01
 script = ExtResource("1_r6swm")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(25, 25)
 shape = SubResource("RectangleShape2D_u08kb")
 
 [node name="TileBackground" type="TextureRect" parent="."]
-offset_right = 50.0
-offset_bottom = 50.0
+offset_left = -25.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 25.0
 texture = ExtResource("2_5gbsb")
 expand_mode = 1
 
 [node name="Label" type="Label" parent="."]
-offset_top = -10.0
-offset_right = 40.0
-offset_bottom = 53.0
-scale = Vector2(0.85, 0.85)
+offset_left = -17.0
+offset_top = -30.0
+offset_right = 23.0
+offset_bottom = 33.0
+scale = Vector2(0.87726927, 0.8534999)
 theme_override_colors/font_color = Color(0.69160056, 0, 0.18049952, 1)
 theme_override_font_sizes/font_size = 45
 text = "A"
@@ -43,17 +45,20 @@ custom_minimum_size = Vector2(20, 20)
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 20.0
-offset_top = 20.0
-offset_right = 40.0
-offset_bottom = 43.0
+offset_left = 4.0
+offset_top = 1.0
+offset_right = 24.0
+offset_bottom = 24.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "1"
 horizontal_alignment = 2
 vertical_alignment = 2
 
 [node name="InputArea" type="Area2D" parent="."]
+z_index = 1
+position = Vector2(-25, -25)
 
 [node name="InputArea" type="CollisionShape2D" parent="InputArea"]
 position = Vector2(25, 25)

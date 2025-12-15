@@ -1,0 +1,38 @@
+[gd_scene load_steps=2 format=3 uid="uid://b7dwnmx4uxrho"]
+
+[ext_resource type="Script" uid="uid://8bjn3jf551jh" path="res://game_over_screen.gd" id="1_6a6fq"]
+
+[node name="GameOverScreen" type="CanvasLayer"]
+layer = 5
+script = ExtResource("1_6a6fq")
+
+[node name="BackgroundOverlay" type="ColorRect" parent="."]
+offset_left = 919.0
+offset_top = 691.0
+offset_right = 959.0
+offset_bottom = 731.0
+scale = Vector2(-17.873707, -12.919254)
+mouse_filter = 1
+color = Color(0, 0, 0, 0.68235296)
+
+[node name="Label" type="Label" parent="BackgroundOverlay"]
+layout_mode = 0
+offset_left = 30.0
+offset_top = 30.0
+offset_right = 122.0
+offset_bottom = 53.0
+rotation = 3.1415927
+scale = Vector2(0.31104618, 0.5501281)
+text = "GAME OVER"
+
+[node name="RetryButton" type="Button" parent="BackgroundOverlay"]
+layout_mode = 0
+offset_left = 25.680178
+offset_top = 16.332212
+offset_right = 90.680176
+offset_bottom = 47.332214
+rotation = 3.1415927
+scale = Vector2(0.2008064, 0.22197857)
+text = "Restart"
+
+[connection signal="pressed" from="BackgroundOverlay/RetryButton" to="." method="_on_retry_button_pressed"]
