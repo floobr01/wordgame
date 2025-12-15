@@ -1,11 +1,15 @@
 extends Node2D
 
 
+#const LETTER_DISTRIBUTION = {
+    #"A": 9, "B": 2, "C": 2, "D": 4, "E": 12, "F": 2, "G": 3, "H": 2,
+    #"I": 9, "J": 1, "K": 1, "L": 4, "M": 2, "N": 6, "O": 8, "P": 2,
+    #"Q": 1, "R": 6, "S": 4, "T": 6, "U": 4, "V": 2, "W": 2, "X": 1,
+    #"Y": 2, "Z": 1, "-": 2 # Blank tile represented by "_"
+#}
+
 const LETTER_DISTRIBUTION = {
-    "A": 9, "B": 2, "C": 2, "D": 4, "E": 12, "F": 2, "G": 3, "H": 2,
-    "I": 9, "J": 1, "K": 1, "L": 4, "M": 2, "N": 6, "O": 8, "P": 2,
-    "Q": 1, "R": 6, "S": 4, "T": 6, "U": 4, "V": 2, "W": 2, "X": 1,
-    "Y": 2, "Z": 1, "_": 2 # Blank tile represented by "_"
+    "A": 9, "E":10, "S":10, "L":10
 }
 
 const LETTER_POINTS = {
@@ -21,6 +25,7 @@ const LETTER_POINTS = {
 
 # Ensure this path is correct for your letter scene file
 var letter_scene = preload("res://letter.tscn") 
+var floating_score_scene = preload("res://floating_score.tscn")
 # Variable to hold all available characters flattened (used for random selection)
 var available_letters = []
 # Game State Variables
@@ -29,6 +34,21 @@ var submission_slots = []   # Array to hold references to the 5 ColorRect nodes
 var letter_in_slot = [null, null, null, null, null] # Tracks the actual letter node in each slot (null = empty)
 var score = 0
 var max_stack_height = 100 # Y-coordinate for game over (e.g., 100 pixels from top)
+# Stores all valid words for fast look-up
+var dictionary_set = {} 
+var current_score = 0
+var high_score = 0 # Optional: for tracking high score
+const NUM_COLUMNS = 10
+const HORIZONTAL_MARGIN = 270 # 20 pixels on the left and right edges
+var pause_menu_scene = preload("res://pause_menu.tscn")
+var pause_menu_node = null # Variable to hold the instantiated pause menu
+# Variable to track the pause state
+var is_paused = false
+const TRANSPARENT_COLOR = Color(1, 1, 1, 0) # R, G, B = 1 (White base), Alpha = 0 (Fully Invisible)
+const MIN_WORD_LENGTH = 1
+# The path should reflect the location of your Label node
+@onready var error_image: TextureRect = $ErrorMessageContainer/ErrorImage 
+@onready var error_animator: AnimationPlayer = $ErrorMessageContainer/ErrorImage/ErrorAnimator
 
 func _populate_available_letters():
     available_letters.clear()
@@ -39,11 +59,31 @@ func _populate_available_letters():
     available_letters.shuffle()
     print("Available letter pool created with size: ", available_letters.size())
 
+func _load_dictionary():
+    var file = FileAccess.open("res://dictionary.txt", FileAccess.READ)
+    if file:
+        var content = file.get_as_text()
+        var words = content.split("\n", false)
+        
+        # Convert the list of words into a Set (dictionary keys) for O(1) look-up time
+        for word in words:
+            var uppercase_word = word.strip_edges().to_upper()
+            
+            if not uppercase_word.is_empty(): # Avoid adding blank entries
+                dictionary_set[uppercase_word] = true
+            # Ensure words are uppercase and trim whitespace
+            #dictionary_set[word.strip_edges().to_upper()] = true 
+        
+        print("Dictionary loaded with ", dictionary_set.size(), " words.")
+    else:
+        print("ERROR: Could not open dictionary.txt.")
+
 func _ready():
     # Set up Timer connection and Autostart in the editor
     # Connect the Submit button
     $LetterTimer.start()
     _populate_available_letters()
+    _load_dictionary() # <-- NEW: Load the dictionary here!
     # CRITICAL: Start the timer to begin spawning letters
     if has_node("LetterTimer"): # Ensure your timer node is named "LetterTimer"
         $LetterTimer.start()
@@ -56,9 +96,20 @@ func _ready():
     submit_button.pressed.connect(_on_submit_button_pressed)
     
     _update_score_display()
+    
+    # Instantiate the pause menu and add it to the game tree
+    pause_menu_node = pause_menu_scene.instantiate()
+    get_node("/root").add_child(pause_menu_node) # Add it to the root of the scene tree
+    
+    # Hide the menu immediately
+    pause_menu_node.hide() 
+    
+    # Connect the buttons (you will define these functions later)
+    # Assuming your buttons are named "ResumeButton" and "QuitButton" in pause_menu.tscn
+    pause_menu_node.get_node("PauseMenu/ResumeButton").pressed.connect(_on_resume_button_pressed)
+    pause_menu_node.get_node("PauseMenu/QuitButton").pressed.connect(_on_quit_button_pressed)
 
 # --- LETTER SPAWNING ---
-
 func _on_letter_timer_timeout():
     # 1. Create a new instance of the letter, using ONE variable name
     var new_letter_node = letter_scene.instantiate()
@@ -67,26 +118,209 @@ func _on_letter_timer_timeout():
     if available_letters.size() > 0:
         var rand_index = randi() % available_letters.size()
         # Take the character out of the pool
-        var selected_char = available_letters.pop_at(rand_index) 
+        var selected_char = available_letters.pop_at(rand_index)    
         
         # 2. Pass the selected character AND its point value to the letter node
         var points = LETTER_POINTS.get(selected_char, 0)
         
         # Set the letter data on the node we are about to spawn!
-        new_letter_node.set_letter_data(selected_char, points) 
+        new_letter_node.set_letter_data(selected_char, points)    
     else:
         # Stop spawning if the pool is empty
         $LetterTimer.stop()
         print("Letter pool empty! Game over or reshuffle needed.")
         return # Stop execution if no letters are available
         
-    # 3. Set position (Random X, fixed Y at top)
+    # 3. Set position (Column-based random X, fixed Y at top)
     var viewport_width = get_viewport_rect().size.x
-    var random_x = randf_range(50, viewport_width - 50) 
-    new_letter_node.position = Vector2(random_x, -50)
+
+    # Get the actual width of the tile's visual element for accurate centering
+    # Uses a safe default (50.0) if the node isn't found, but should find "TileBackground"
+    var tile_width = 50.0 
+    if new_letter_node.has_node("TileBackground"):
+        tile_width = new_letter_node.get_node("TileBackground").size.x
+
+    # --- START COLUMN LOGIC INTEGRATION (with Margins) ---
+
+    # A. Calculate the usable width (Viewport width minus margins)
+    var usable_width = viewport_width - (2 * HORIZONTAL_MARGIN)
+
+    # B. Calculate the width of each column (usable space / number of columns)
+    var column_width = usable_width / NUM_COLUMNS
+
+    # C. Pick a random column index (0 to 9)
+    var random_column_index = randi() % NUM_COLUMNS
+
+    # D. Calculate the **starting X** of the column
+    # This is where the left edge of the tile should align
+    var column_start_x = HORIZONTAL_MARGIN + (random_column_index * column_width)
+
+    # E. Calculate the final X position (Center of the tile)
+    # Center position = Column Start X + (Half the tile width)
+    var center_x_position = column_start_x + (tile_width / 2.0)
+
+    # F. Apply the calculated position 
+    # Y is always -50 to start the tile just above the screen
+    new_letter_node.position = Vector2(center_x_position, -50)
+
+    # --- END COLUMN LOGIC INTEGRATION ---
     
-    # 4. Add the letter instance with the correct data to the game world
+    # 4. Connect the new right-click signal to the auto-slot function
+    # This is required for the right-click feature added in the last step.
+    new_letter_node.right_clicked_for_slot.connect(_auto_slot_letter)
+    
+    # 5. Add the letter instance with the correct data to the game world
     add_child(new_letter_node)
+    
+func _auto_slot_letter(letter_node):
+    # Find the index of the first available (null) slot
+    var available_index = -1
+    for i in letter_in_slot.size():
+        if letter_in_slot[i] == null:
+            available_index = i
+            break
+            
+    # If no slots are available, just return
+    if available_index == -1:
+        print("All slots full, cannot auto-slot.")
+        return
+
+    # Call your existing logic to place the letter at the found index
+    # We pass the letter node and the target slot index.
+    _place_letter_at_slot(letter_node, available_index)
+    
+func _place_letter_at_slot(letter_node, index):
+    # 1. Freeze the letter so physics stops affecting it
+    letter_node.freeze = true 
+    letter_node.modulate = Color.WHITE
+    
+    # 2. Get the target slot node
+    var target_slot = get_node("GameUI/SubmissionSlots").get_children()[index]
+    
+    # 3. REPARENT the letter to the slot
+    # This moves the letter from the root scene INTO the UI slot.
+    # This ensures it draws ON TOP of the slot and moves with it.
+    letter_node.reparent(target_slot)
+    
+    # 4. Center the letter LOCALLY inside the slot
+    # Since it is now a child of the slot, (0,0) is the top-left corner of the slot.
+    var tile_width = letter_node.get_node("TileBackground").size.x
+    var tile_height = letter_node.get_node("TileBackground").size.y
+    
+    var center_x = (target_slot.size.x / 2.0) - (tile_width / 2.0)
+    var center_y = (target_slot.size.y / 2.0) - (tile_height / 2.0)
+    
+    # Set the LOCAL position (relative to the parent slot)
+    letter_node.position = Vector2(center_x, center_y)
+    
+    # 5. Reset Rotation
+    # Physics objects rotate as they fall. We want it straight in the slot.
+    letter_node.rotation = 0
+
+    # 6. Visual feedback (Darken the tile)
+    #if letter_node.has_node("TileBackground"):
+        #letter_node.get_node("TileBackground").modulate = Color.BLACK 
+    
+    # 7. Update logic arrays
+    letter_in_slot[index] = letter_node
+    
+    # Update the UI text
+    _arrange_letters()
+
+      
+
+# In game.gd: Replace the entire func _spawn_floating_score
+func _input(event):
+    # Check if the Escape key (or 'ui_cancel' action) was just pressed
+    if event.is_action_pressed("ui_cancel"):
+        if is_paused:
+            _unpause_game()
+        else:
+            _pause_game()
+            
+func _show_message(): # Note: We remove the 'text' argument since it's an image
+    
+    # Ensure the image is visible (the animation controls the alpha fade)
+    error_image.show() 
+    
+    # Check if the animation exists before playing
+    if error_animator.has_animation("error_float"):
+        error_animator.play("error_float")
+    else:
+        # Fallback if the animation is missing
+        print("Error: 'error_float' animation not found in ErrorAnimator.")
+
+# Function to handle pausing the game
+func _pause_game():
+    is_paused = true
+    get_tree().paused = true
+    
+    # Show the pause menu
+    pause_menu_node.show() 
+    
+    # IMPORTANT: Ensure the pause menu and its children are NOT affected by the game pause
+    # Set the pause mode to PROCESS or IGNORE for the CanvasLayer root of the menu
+    pause_menu_node.set_process_mode(Node.PROCESS_MODE_ALWAYS) # Or PROCESS_MODE_DISABLED if you prefer
+
+    # Optional: Stop the letter timer immediately
+    if has_node("LetterTimer"):
+        $LetterTimer.stop()
+    print("Game Paused.")
+
+# Function to handle unpausing the game
+func _unpause_game():
+    is_paused = false
+    get_tree().paused = false
+    
+    # Hide the pause menu
+    pause_menu_node.hide()
+    
+    # Restart the letter timer
+    if has_node("LetterTimer"):
+        $LetterTimer.start()
+    print("Game Resumed.")
+    
+# Button connection handlers
+func _on_resume_button_pressed():
+    _unpause_game()
+
+func _on_quit_button_pressed():
+    get_tree().quit() # Quits the application
+
+func _spawn_floating_score(points_gained):
+    # Instantiate the scene
+    var floating_score_node = floating_score_scene.instantiate()
+    
+    # Get critical nodes (We know these names are correct now)
+    var score_label = floating_score_node.get_node("ScoreLabel")
+    var animator = floating_score_node.get_node("Animator")
+
+    # Set the text
+    score_label.text = "+" + str(points_gained)
+    
+    # Get the GameUI node and add the child
+    var game_ui = get_node("GameUI") 
+    game_ui.add_child(floating_score_node) 
+    
+    # Set position (using global_position to place it correctly inside the UI parent)
+    var slots_container = get_node("GameUI/SubmissionSlots")
+    var container_center = slots_container.global_position + (slots_container.size / 2.0)
+    floating_score_node.global_position = container_center
+    
+    print("DEBUG: Spawning Score at: ", container_center)
+    
+    # --- CRITICAL FIX: Ensure the node is ready before playing the animation ---
+    
+    # Wait for one frame (This ensures the node is fully processed and ready)
+    await get_tree().process_frame
+    
+    # Explicitly play the animation
+    animator.play("float_away") 
+    
+    # Connect cleanup signal
+    #animator.animation_finished.connect(floating_score_node.queue_free)
+    animator.animation_finished.connect(func(_anim_name): floating_score_node.queue_free())
+    
 # --- WORD COLLECTION ---
 
 func add_letter_to_word(letter_node):
@@ -95,7 +329,7 @@ func add_letter_to_word(letter_node):
         var slot_node = submission_slots[i]
         
         # Find the size of the letter block (assuming 50x50 from previous context)
-        var letter_size = letter_node.get_node("ColorRect").size 
+        var letter_size = letter_node.get_node("TileBackground").size
 
         # Check if the letter was dropped onto this specific slot AND the slot is empty
         if slot_node.get_global_rect().has_point(letter_node.global_position) and letter_in_slot[i] == null:
@@ -106,9 +340,9 @@ func add_letter_to_word(letter_node):
             slot_node.color = Color(0.2, 0.8, 0.2) # R=33, G=CC, B=33       
             # 1. Slot is filled: Store the letter node reference
             # 1. CRITICAL: Change the letter's color to show it's locked/placed
-            if letter_node.has_node("ColorRect"):
-                 # Change to a dark color, e.g., Black (0, 0, 0)
-                 letter_node.get_node("ColorRect").modulate = Color.BLACK
+            if letter_node.has_node("TileBackground"): # Updated node check
+    # Change to a dark color, e.g., Black (0, 0, 0)
+                letter_node.get_node("TileBackground").modulate = Color.BLACK # Updated node path
             letter_in_slot[i] = letter_node
             
             # ... (slot filling and freezing code remains the same) ...
@@ -176,42 +410,6 @@ func _arrange_letters():
     word_display.text = "WORD: " + current_word_string
 
 
-# --- WORD SUBMISSION AND SCORING ---
-
-func _on_submit_button_pressed():
-    var word_to_check = ""
-    for node in letter_in_slot:
-        if node == null:
-            # If any slot is empty, the word is not complete
-            print("Submission failed: Word is not 5 letters long.")
-            return # Exit the submission process
-            
-        word_to_check += node.character
-        
-    # Word is exactly 5 letters long!
-    print("Attempting to submit word: " + word_to_check)
-        
-    # --- PLACEHOLDER WORD CHECK ---
-    # Example scoring for a 5-letter word:
-    if word_to_check.length() == 5 and word_to_check.begins_with("A"):
-        _word_is_valid(word_to_check)
-    else:
-        _word_is_invalid()
-
-
-func _word_is_valid(word):
-    print("VALID WORD: " + word)
-    var points = word.length() * 10 
-    score += points
-    _update_score_display()
-    _clear_current_word()
-
-
-func _word_is_invalid():
-    print("INVALID WORD!")
-    # In a real game, you might show an error message instead of clearing instantly.
-    _clear_current_word()
-
 func _clear_current_word():
     # 1. Delete the letter nodes from the game
     for node in letter_in_slot:
@@ -221,17 +419,24 @@ func _clear_current_word():
     # 2. Reset the tracking array
     letter_in_slot = [null, null, null, null, null]
     
-    # 3. Restore the slot colors back to the default empty color
-    var empty_color = Color()    
+    # 3. Restore the slot colors back to the default transparent state
+    # Replace the old 'var empty_color = Color()' with the constant:
     for slot_node in submission_slots:
-        slot_node.color = empty_color
-    
+        # Check if the node is a ColorRect (uses .color) or a TextureRect (uses .modulate)
+        # Since you want both to be invisible, setting modulate is safest as it works on all Control nodes.
+        slot_node.self_modulate = TRANSPARENT_COLOR
+        slot_node.modulate = Color.WHITE
+        
+        # If the slot was a ColorRect, you can reset the color property too, just in case:
+        if slot_node is ColorRect:
+            slot_node.color = TRANSPARENT_COLOR
+        
     _arrange_letters()
 
-
-func _update_score_display():
-    var score_display = get_node("GameUI/ScoreContainer/ScoreLabel")
-    score_display.text = "SCORE: " + str(score)
+#
+#func _update_score_display():
+    #var score_display = get_node("GameUI/ScoreContainer/ScoreLabel")
+    #score_display.text = "SCORE: " + str(score)
 
 # --- GAME OVER LOGIC ---
 
@@ -239,6 +444,62 @@ func _process(delta: float):
     # We check the height of the highest-stacked letter every frame.
     #_check_game_over()
     pass
+    
+# In game.gd: Modify or create this function
+#func _process_submission():
+func _on_submit_button_pressed():
+    var current_word_string = ""
+    var total_points = 0
+    var is_word_valid = false # Flag for dictionary check
+    var current_word_length = 0 # Track how many slots are filled consecutively
+
+    # 1. Build the word string by reading CONSECUTIVE filled slots
+    for letter_node in letter_in_slot:
+        if letter_node != null:
+            # If the slot has a letter, add its data and continue
+            current_word_string += letter_node.character
+            total_points += letter_node.points
+            current_word_length += 1
+        else:
+            # The first empty slot encountered stops the word construction
+            break 
+            
+    # ADDED DEBUG PRINT
+    print("--- DEBUG: Built Word:", current_word_string, ", Length:", current_word_length)
+
+    # 2. Validation Check
+    if current_word_length < MIN_WORD_LENGTH:
+        print("Submission failed: Word must be at least ", MIN_WORD_LENGTH, " letters long.")
+        return # Exit if the word is too short
+        
+    var submitted_word_for_check = current_word_string.to_upper() 
+    
+    if dictionary_set.has(submitted_word_for_check):
+        
+        # --- SUCCESS: VALID WORD ---
+        print("VALID WORD: ", submitted_word_for_check, " (+", total_points, " points)") 
+        _spawn_floating_score(total_points)
+        
+        current_score += total_points
+        is_word_valid = true # Mark it as valid so we clear it
+        
+        _update_score_display()
+        
+    else:
+        # --- FAILURE: INVALID WORD ---
+        print("INVALID WORD (Failed Dictionary Lookup): ", submitted_word_for_check)
+        _show_message() # Call without argument
+        # NOTE: Since the word is invalid, we DO NOT clear the word.
+        # The user must remove letters and try a different word.
+        return # Exit the function, leaving the letters in the slots
+
+    # 3. Clear the slots ONLY IF the word was valid
+    if is_word_valid:
+        _clear_current_word()
+# NEW: Function to display the score (needs a Label in your GameUI scene)
+func _update_score_display():
+    var score_label = get_node("GameUI/ScoreContainer/ScoreLabel") # Adjust path as needed
+    score_label.text = "SCORE: " + str(current_score)
 
 func _check_game_over():
     var highest_y = get_viewport_rect().size.y # Start at the bottom of the screen

@@ -1,11 +1,15 @@
-[gd_scene load_steps=4 format=3 uid="uid://dt210qn8gr2t5"]
+[gd_scene load_steps=6 format=3 uid="uid://dt210qn8gr2t5"]
 
 [ext_resource type="Script" uid="uid://8wh3s583g04p" path="res://letter.gd" id="1_r6swm"]
+[ext_resource type="Texture2D" uid="uid://bfv33qa3g5fdt" path="res://block.png" id="2_5gbsb"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_r6swm"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_u08kb"]
-size = Vector2(67, 54.5)
+size = Vector2(50, 50)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_5gbsb"]
+size = Vector2(50, 50)
 
 [node name="Letter" type="RigidBody2D"]
 input_pickable = true
@@ -15,18 +19,44 @@ gravity_scale = 0.01
 script = ExtResource("1_r6swm")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(33, 32)
+position = Vector2(25, 25)
 shape = SubResource("RectangleShape2D_u08kb")
 
-[node name="ColorRect" type="ColorRect" parent="."]
-offset_right = 40.0
-offset_bottom = 40.0
-color = Color(0.64928186, 0.9748997, 0.7783265, 1)
+[node name="TileBackground" type="TextureRect" parent="."]
+offset_right = 50.0
+offset_bottom = 50.0
+texture = ExtResource("2_5gbsb")
+expand_mode = 1
 
 [node name="Label" type="Label" parent="."]
+offset_top = -10.0
 offset_right = 40.0
-offset_bottom = 23.0
+offset_bottom = 53.0
+scale = Vector2(0.85, 0.85)
 theme_override_colors/font_color = Color(0.69160056, 0, 0.18049952, 1)
 theme_override_font_sizes/font_size = 45
 text = "A"
 horizontal_alignment = 1
+
+[node name="PointLabel" type="Label" parent="."]
+custom_minimum_size = Vector2(20, 20)
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 40.0
+offset_bottom = 43.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+horizontal_alignment = 2
+vertical_alignment = 2
+
+[node name="InputArea" type="Area2D" parent="."]
+
+[node name="InputArea" type="CollisionShape2D" parent="InputArea"]
+position = Vector2(25, 25)
+shape = SubResource("RectangleShape2D_5gbsb")
+
+[connection signal="input_event" from="InputArea" to="." method="_on_input_area_input_event"]

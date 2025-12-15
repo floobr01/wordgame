@@ -9,6 +9,8 @@ var points = 0 # NEW VARIABLE
 var original_gravity_scale = 1.0 # To store the falling speed
 var collision_shape_node = null
 
+signal right_clicked_for_slot(letter_node)
+
 func _ready():
     # 1. Character Setup
     #var alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -33,7 +35,13 @@ func set_letter_data(char, pts):
     # Update the UI Label with the character
     if has_node("Label"):
         $Label.text = character
-    
+    # Update the point Label (This line needs to find the node correctly)
+    if has_node("PointLabel"): 
+        if points > 0:
+            $PointLabel.text = str(points)
+        else:
+            $PointLabel.text = ""
+            
     # CRITICAL: If the letter is a blank tile, display it differently
     if character == "_":
         if has_node("Label"):
@@ -115,3 +123,17 @@ func _input(event):
         global_position = get_global_mouse_position()
 
 # IMPORTANT: The Right Click removal logic was deleted to use the Left Click drag-out instead.
+
+
+    
+func _on_input_area_input_event(viewport, event, shape_idx):
+    # Check for right-click (mouse button index 2)
+    if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+        
+        # Emit a signal that the Game script can listen for.
+        # This sends the letter node itself (self) back to the Game script.
+        # You need to define this signal at the top of letter.gd!
+        emit_signal("right_clicked_for_slot", self)
+        
+        # Stop the event from propagating further (optional, but good practice)
+        get_viewport().set_input_as_handled()
