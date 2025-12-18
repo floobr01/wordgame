@@ -16,6 +16,8 @@ signal right_clicked_for_slot(letter_node)
 var is_in_slot = false
 var is_newly_spawned = true # Flag to skip game over check initially
 
+var is_mystery_tile: bool = false
+
 
 func _ready():
     set_process_mode(Node.PROCESS_MODE_ALWAYS)
@@ -93,14 +95,23 @@ func _input(event):
                 # Stop other nodes from processing this click
                 get_viewport().set_input_as_handled()
                 return
+                
+func make_mystery():
+    is_mystery_tile = true
+    character = "?"
+    points = 10 # High risk, high reward?
+    # Update your Label and visuals here
+    $Label.text = "?" 
+    # Maybe change the ColorRect color to Purple or Black to look "mysterious"
+    #$ColorRect.color = Color.MEDIUM_PURPLE
+    #$TileBackground.color = Color.MEDIUM_PURPLE
 
-# IMPORTANT: Remove the _on_input_area_input_event if you are using _input
-# Since you defined a full _input function, this Area2D handler is likely redundant and should be removed.
-# func _on_input_area_input_event(viewport, event, shape_idx):
-#     ... (DELETED or COMMENTED OUT) ...
+func trigger_mystery_effect():
+    print("??? MYSTERY EFFECT TRIGGERED ???")
+    # We'll define the actual effects later, but for now, maybe a little sound?
+    # _play_sound(MYSTERY_SFX)
 
-
-# Note: The _process or _physics_process functions are not needed for dragging 
-# anymore, but they must remain for physics updates if they existed. 
-# Since you did not provide a _process or _physics_process, we assume they are 
-# empty or only contain physics/falling logic, which is fine.
+func _on_input_event(_viewport, event, _shape_idx):
+    if is_mystery_tile and event is InputEventMouseButton and event.pressed:
+        if event.button_index == MOUSE_BUTTON_LEFT:
+            trigger_mystery_effect()

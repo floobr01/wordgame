@@ -31,7 +31,7 @@ var available_letters = []
 # Game State Variables
 var current_word_nodes = [] # Holds the list of letter nodes currently in the box
 var submission_slots = []   # Array to hold references to the 5 ColorRect nodes
-var letter_in_slot = [null, null, null, null, null] # Tracks the actual letter node in each slot (null = empty)
+var letter_in_slot = [null, null, null, null, null, null, null, null] # Tracks the actual letter node in each slot (null = empty)
 var score = 0
 var max_stack_height = 100 # Y-coordinate for game over (e.g., 100 pixels from top)
 # Stores all valid words for fast look-up
@@ -50,9 +50,15 @@ const MIN_WORD_LENGTH = 1
 @onready var error_image: TextureRect = $ErrorMessageContainer/ErrorImage 
 @onready var error_animator: AnimationPlayer = $ErrorMessageContainer/ErrorImage/ErrorAnimator
 const WORD_FLASH_SCENE = preload("res://word_flash.tscn")
-
+const COMBO_EXPLOSION_SCENE = preload("res://ComboExplosion.tscn") # <-- NEW
 @onready var word_display_list = $GameUI/WordListPanel/WordScrollContainer/WordDisplayList
 var used_words = []
+
+# Combo System Variables
+var combo_count = 0 
+const COMBO_TIME_LIMIT = 12.0 # Seconds
+const BASE_COMBO_MULTIPLIER = 1.2 # e.g., 1.2^combo_count
+@onready var combo_label = $GameUI/ComboLabel # Make sure path is correct!
 
 #END GAME STUFF
 # Define the number of columns and the max visual height
@@ -61,6 +67,20 @@ const GAME_OVER_Y_LIMIT = 100 # This is the Y-coordinate limit (e.g., 100 pixels
 const GAME_OVER_SCREEN_SCENE = preload("res://GameOverScreen.tscn")
 const VALID_WORD_SOUND = preload("res://punch.mp3")
 
+
+func _show_combo_explosion(combo: int):
+    # We only want explosions for Combo 2 and up
+    if combo < 5:
+        return
+
+    var explosion_instance = COMBO_EXPLOSION_SCENE.instantiate()
+
+    # Add to the main game root, or a specific layer if you use CanvasLayer
+    add_child(explosion_instance) 
+
+    # Pass the combo count to the explosion scene to set the scale
+    explosion_instance.start_explosion(combo)
+    
 func _populate_available_letters():
     available_letters.clear()
     for char in LETTER_DISTRIBUTION:
@@ -181,21 +201,25 @@ func _on_letter_timer_timeout():
     
     # 1. Create a new instance of the letter
     var new_letter_node = letter_scene.instantiate()
-    
-    # Check if the pool is empty
-    if available_letters.size() > 0:
-        var rand_index = randi() % available_letters.size()
-        # Take the character out of the pool
-        var selected_char = available_letters.pop_at(rand_index)    
-        
-        # 2. Pass the selected character AND its point value to the letter node
-        var points = LETTER_POINTS.get(selected_char, 0)
-        new_letter_node.set_letter_data(selected_char, points)    
+    var is_mystery = randf() < 0.1 
+    if is_mystery:
+        # Use the mystery setup we defined earlier
+        new_letter_node.make_mystery()
     else:
-        # Stop spawning if the pool is empty
-        $LetterTimer.stop()
-        print("Letter pool empty! Game over or reshuffle needed.")
-        return # Stop execution if no letters are available
+    # Check if the pool is empty
+        if available_letters.size() > 0:
+            var rand_index = randi() % available_letters.size()
+            # Take the character out of the pool
+            var selected_char = available_letters.pop_at(rand_index)    
+            
+            # 2. Pass the selected character AND its point value to the letter node
+            var points = LETTER_POINTS.get(selected_char, 0)
+            new_letter_node.set_letter_data(selected_char, points)    
+        else:
+            # Stop spawning if the pool is empty
+            $LetterTimer.stop()
+            print("Letter pool empty! Game over or reshuffle needed.")
+            return # Stop execution if no letters are available
         
     # 3. Set position (Column-based random X, fixed Y at top)
     var viewport_width = get_viewport_rect().size.x
@@ -683,7 +707,7 @@ func _clear_current_word():
             node.queue_free()
     
     # 2. Reset the tracking array
-    letter_in_slot = [null, null, null, null, null]
+    letter_in_slot = [null, null, null, null, null, null, null, null]
     
     # 3. Restore the slot colors back to the default transparent state
     # Replace the old 'var empty_color = Color()' with the constant:
@@ -707,71 +731,148 @@ func _clear_current_word():
 # --- GAME OVER LOGIC ---
 
 func _process(delta: float):
+    if combo_count > 0 and $ComboTimer.is_stopped() == false:
+        _update_combo_display()
     # We check the height of the highest-stacked letter every frame.
     _check_game_over()
     pass
+
+
+func _update_combo_display():
+    if not is_instance_valid(combo_label):
+        push_warning("CRITICAL: ComboLabel is not available (null instance).")
+        return
+        
+    if combo_count > 1:
+        # Get the remaining time from the Timer node
+        var time_left = $ComboTimer.time_left
+        
+        # Format the time to one decimal place (e.g., 4.3s)
+        var time_text = "%.1f" % time_left
+        
+        # Display both the Combo Count and the Time Left
+        combo_label.text = "COMBO! x%d | %s s" % [combo_count, time_text]
+        
+    elif combo_count == 1:
+        # If the combo count is 1, it might be cleaner to just show the timer
+        var time_left = $ComboTimer.time_left
+        var time_text = "%.1f" % time_left
+        combo_label.text = "NEXT COMBO: %s s" % time_text
+        
+    else:
+        # Combo is 0 (broken or not yet started)
+        combo_label.text = ""
+   
+
+func _trigger_mystery_powerup():
+    print("!!! MYSTERY POWERUP TRIGGERED !!!")
     
+    # This is a placeholder for the "Mystery Effects" we will define later.
+    # For now, let's just give a small score bonus as a test:
+    #current_score += 500
+    _update_score_display()
+    
+    # You could also play a special sound here:
+    # _play_sound_effect(MYSTERY_SOUND)
+          
 # In game.gd: Modify or create this function
 #func _process_submission():
 func _on_submit_button_pressed():
     var current_word_string = ""
-    var total_points = 0
-    var is_word_valid = false # Flag for dictionary check
-    var current_word_length = 0 # Track how many slots are filled consecutively
+    var base_points = 0
+    var current_word_length = 0
+    var has_mystery_tile = false
+    var mystery_at_wrong_index = false
 
-    # 1. Build the word string by reading CONSECUTIVE filled slots
-    for letter_node in letter_in_slot:
+    # 1. Build the word string from the slots
+    for i in range(letter_in_slot.size()):
+        var letter_node = letter_in_slot[i]
+        
         if letter_node != null:
-            # If the slot has a letter, add its data and continue
-            current_word_string += letter_node.character
-            total_points += letter_node.points
+            # If it's a mystery tile, don't add "?" to the spelling string
+            if letter_node.is_mystery_tile:
+                has_mystery_tile = true
+                # Check if there is a letter in the NEXT slot (not at the end)
+                if i + 1 < letter_in_slot.size() and letter_in_slot[i+1] != null:
+                    mystery_at_wrong_index = true
+            else:
+                # Normal letter: add to spelling
+                current_word_string += letter_node.character
+            
+            # Points and length count for both types
+            base_points += letter_node.points
             current_word_length += 1
         else:
-            # The first empty slot encountered stops the word construction
             break 
             
-    # ADDED DEBUG PRINT
     print("--- DEBUG: Built Word:", current_word_string, ", Length:", current_word_length)
 
-    # 2. Validation Check
+    # 2. Validation Checks
     if current_word_length < MIN_WORD_LENGTH:
-        print("Submission failed: Word must be at least ", MIN_WORD_LENGTH, " letters long.")
-        return # Exit if the word is too short
-        
-    var submitted_word_for_check = current_word_string.to_upper() 
-    if used_words.has(submitted_word_for_check):
-        print("ERROR: Word already submitted!")
-        # Optional: Play an error sound/flash a message
-        # _play_sound_effect(ERROR_SOUND) # If you create one
-        _show_flash_word("USED") # Use your existing flash function for feedback
-        #_clear_submission_slots()
+        print("Submission failed: Word too short.")
+        return 
+    
+    if mystery_at_wrong_index:
+        print("Submission failed: Mystery tile must be at the end.")
+        _show_flash_word("END ONLY")
         return
         
+    var submitted_word_for_check = current_word_string.to_upper() 
+
+    # 3. Duplicate Word Check
+    if used_words.has(submitted_word_for_check):
+        print("ERROR: Word already submitted!")
+        _show_flash_word("USED") 
+        return
+        
+    # 4. Dictionary Validation
     if dictionary_set.has(submitted_word_for_check):
-        used_words.append(submitted_word_for_check)
         # --- SUCCESS: VALID WORD ---
-        print("VALID WORD: ", submitted_word_for_check, " (+", total_points, " points)") 
-        _spawn_floating_score(total_points)
+        used_words.append(submitted_word_for_check)
         
-        current_score += total_points
-        is_word_valid = true # Mark it as valid so we clear it
+        # A. Update Combo Mechanics
+        combo_count += 1
+        $ComboTimer.start(COMBO_TIME_LIMIT)
+        _show_combo_explosion(combo_count)
+        _update_combo_display()
+        
+        # B. Mystery Effect Trigger
+        if has_mystery_tile:
+            # This is where we will define the chaos later!
+            #_trigger_mystery_effect()
+            print("mystery effect")
+            _trigger_mystery_powerup()
+        
+        # C. Calculate Exponential Bonus
+        var combo_multiplier = pow(BASE_COMBO_MULTIPLIER, combo_count)
+        var final_points = roundi(base_points * combo_multiplier)
+        
+        # D. Update Scores and UI
+        current_score += final_points 
+        
+        print("VALID WORD: ", submitted_word_for_check, " (Points: ", final_points, ")") 
+        
+        _spawn_floating_score(final_points)
         _play_sound_effect(VALID_WORD_SOUND)
-        _show_flash_word(submitted_word_for_check)
-        _update_score_display()
-        _add_word_to_list(submitted_word_for_check, total_points)
-        current_score += total_points
         
+        var flash_text = submitted_word_for_check
+        if has_mystery_tile:
+            flash_text += "?"
+        if combo_count > 1:
+            flash_text += " x" + str(combo_count)
+        _show_flash_word(flash_text)
+        
+        _update_score_display()
+        _add_word_to_list(submitted_word_for_check, final_points)
+        
+        # E. Clear the slots
+        _clear_current_word()
+
     else:
         # --- FAILURE: INVALID WORD ---
-        print("INVALID WORD (Failed Dictionary Lookup): ", submitted_word_for_check)
-        _show_message() # Call without argument
-        # NOTE: Since the word is invalid, we DO NOT clear the word.
-        # The user must remove letters and try a different word.
-        return # Exit the function, leaving the letters in the slots
+        print("INVALID WORD: ", submitted_word_for_check)
+        _show_message()
 
-    # 3. Clear the slots ONLY IF the word was valid
-    if is_word_valid:
-        _clear_current_word()
 # NEW: Function to display the score (needs a Label in your GameUI scene)
 func _update_score_display():
     var score_label = get_node("GameUI/ScoreContainer/ScoreLabel") # Adjust path as needed
@@ -867,6 +968,8 @@ func _show_game_over_screen():
     
     # 3. Add it to the scene tree
     add_child(game_over_screen)
+    
+
 
 func _on_restart_requested():
     # 1. Unpause the game is CRITICAL (since the game was paused on game over)
@@ -882,3 +985,13 @@ func _on_restart_requested():
     
     if error != OK:
         print("ERROR: Could not restart scene at path: ", current_scene_path)
+
+func _on_combo_timer_timeout():
+    # Timer ran out, so the combo is broken
+    if combo_count > 1:
+        print("COMBO BROKEN! Final combo: ", combo_count)
+        _show_flash_word("COMBO END!")
+        
+    combo_count = 0
+    # Optional: Update a label here to show 0 combo
+    _update_combo_display() # We'll create this function in step 4 body.
